@@ -1,4 +1,4 @@
-### Zelrap backend
+# zelrap backend
 
 Tiny backend for [Zelrap](https://github.com/bartekpacia/zelrap).
 

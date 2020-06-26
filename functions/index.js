@@ -1,11 +1,17 @@
 const functions = require("firebase-functions")
 const request = require("request-promise-native")
+const admin = require("firebase-admin")
+const crypto = require("crypto")
 const config = require("./config")
 
 const FCM_KEY = config.keys.fcm
-const API_KEY = process.keys.stream_api_key
-const API_SECRET = process.env.stream_api_secret
+const API_KEY = config.keys.stream_api_key
+const API_SECRET = config.keys.stream_api_secret
 const APP_ID = config.keys.stream_app_id
+
+admin.initializeApp()
+
+const generateUserToken = () => crypto.randomBytes(32).toString("base64")
 
 exports.sendLiveNotification = functions.firestore
   .document("celebrities/{celebrity}")
@@ -33,7 +39,7 @@ exports.sendLiveNotification = functions.firestore
     }
   })
 
-exports.streamApi = functions.https.onRequest(async (req, res) => {
+exports.streamFeedCredentials = functions.https.onRequest(async (req, res) => {
   try {
     const data = req.body
 
@@ -44,9 +50,49 @@ exports.streamApi = functions.https.onRequest(async (req, res) => {
     await client.user(username).getOrCreate({ name: username })
     const token = client.createUserToken(username)
 
-    res.status(200).json({ token, API_KEY, APP_ID })
+    return res.status(200).json({ token, API_KEY, APP_ID })
   } catch (error) {
     console.log(error)
-    res.status(500).json({ error: error.message })
+    return res.status(500).json({ error: error.message })
   }
+})
+
+exports.authenticate = functions.https.onRequest(async (req, res) => {
+  if (!req.body || !req.body.sender) {
+    res.statusMessage = "You should specify sender in body"
+    res.status(400).end()
+    return null
+  }
+  const token = generateUserToken()
+
+  const username = req.body.sender
+
+  const querySnapshot = await admin
+    .firestore()
+    .collection("users")
+    .where("sender", "==", username)
+    .get()
+
+  for (const doc of querySnapshot.docs) {
+    console.log(doc.data())
+  }
+
+  await admin.firestore().collection("users").doc(token).set({
+    sender: req.body.sender,
+  })
+
+  return res.json({ authToken: token })
+})
+
+exports.getUsers = functions.https.onRequest(async (req, res) => {
+  const snapshot = await admin.firestore().collection("users").get()
+  const users = snapshot.data()
+
+  const senders = []
+
+  for (const user in users) {
+    senders.push(user.sender)
+  }
+
+  return res.json({ users: senders })
 })

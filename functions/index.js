@@ -64,7 +64,6 @@ exports.authenticate = functions.https.onRequest(async (req, res) => {
     res.status(400).end()
     return null
   }
-  const token = generateUserToken()
 
   const username = req.body.sender
 
@@ -74,17 +73,25 @@ exports.authenticate = functions.https.onRequest(async (req, res) => {
     .where("sender", "==", username)
     .get()
 
+  let token
+  userExists = false
   for (const doc of querySnapshot.docs) {
     console.log(`doc.data: ${doc.data()}`)
 
     if (doc.data().sender === username) {
       console.log("USER EXIST")
+      userExists = true
+      token = doc.id
     }
   }
 
-  await admin.firestore().collection("users").doc(token).set({
-    sender: req.body.sender,
-  })
+  if (!userExists) {
+    token = generateUserToken()
+
+    await admin.firestore().collection("users").doc(token).set({
+      sender: req.body.sender,
+    })
+  }
 
   return res.json({ authToken: token })
 })

@@ -1,6 +1,7 @@
 const functions = require("firebase-functions")
 const request = require("request-promise-native")
 const admin = require("firebase-admin")
+const stream = require("getstream")
 const crypto = require("crypto")
 const config = require("./config")
 
@@ -74,7 +75,11 @@ exports.authenticate = functions.https.onRequest(async (req, res) => {
     .get()
 
   for (const doc of querySnapshot.docs) {
-    console.log(doc.data())
+    console.log(`doc.data: ${doc.data()}`)
+
+    if (doc.data().sender === username) {
+      console.log("USER EXIST")
+    }
   }
 
   await admin.firestore().collection("users").doc(token).set({

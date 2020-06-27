@@ -42,11 +42,11 @@ exports.sendLiveNotification = functions.firestore
 
 exports.streamFeedCredentials = functions.https.onRequest(async (req, res) => {
   try {
-    const data = req.body
+    const data = req.body // bug
 
     const client = stream.connect(API_KEY, API_SECRET, APP_ID)
 
-    const username = req.user.sender
+    const username = req.body.sender //bug
 
     await client.user(username).getOrCreate({ name: username })
     const token = client.createUserToken(username)
@@ -76,10 +76,8 @@ exports.authenticate = functions.https.onRequest(async (req, res) => {
   let token
   userExists = false
   for (const doc of querySnapshot.docs) {
-    console.log(`doc.data: ${doc.data()}`)
-
     if (doc.data().sender === username) {
-      console.log("USER EXIST")
+      console.log(`USER ${sender} EXIST`)
       userExists = true
       token = doc.id
     }
@@ -98,12 +96,12 @@ exports.authenticate = functions.https.onRequest(async (req, res) => {
 
 exports.getUsers = functions.https.onRequest(async (req, res) => {
   const snapshot = await admin.firestore().collection("users").get()
-  const users = snapshot.data()
+  const users = snapshot.docs
 
   const senders = []
 
-  for (const user in users) {
-    senders.push(user.sender)
+  for (const user of users) {
+    senders.push(user.data().sender)
   }
 
   return res.json({ users: senders })
